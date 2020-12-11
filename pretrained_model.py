@@ -9,7 +9,7 @@ Created on Mon Dec  7 17:34:24 2020
 import numpy as np
 import cv2 as cv
 
-img = cv.imread('test_images/papa.png')
+img = cv.imread('test_images/makuti_shen.jpg')
 
 #get the image height
 img_height = img.shape[0]
@@ -17,6 +17,14 @@ img_height = img.shape[0]
 #get the image width
 img_width = img.shape[1]
 
+#non-maxima suppresion confidence
+SUP_CONF = 0.5
+MS_THRESHOLD = 0.4
+
+#webcam stream 
+wb_video_stream = cv.VideoCapture(0)
+
+ 
 img_blob = cv.dnn.blobFromImage(img, 0.003922, (416,416), swapRB=True, crop=False)
 
 class_labels = ["person","bicycle","car","motorcycle","airplane","bus","train","truck","boat","traffic light","fire hydrant","stop sign","parking meter","bench","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe","backpack","umbrella","handbag","tie","suitcase","frisbee","skis","snowboard","sports ball","kite","baseball bat","baseball glove","skateboard","surfboard","tennis racket","bottle","wine glass","cup","fork","knife","spoon","bowl","banana","apple","sandwich","orange","broccoli","carrot","hot dog","pizza","donut","cake","chair","couch","potted plant","bed","dining table","toilet","tv","laptop","mouse","remote","keyboard","cell phone","microwave","oven","toaster","sink","refrigerator","book","clock","vase","scissors","teddy bear","hair drier","toothbrush"]
@@ -49,6 +57,11 @@ model.setInput(img_blob)
 #obtain the detection layers by fowarding through till the output layer
 detection_layers = model.forward(output_layer)
 
+#non max supression
+class_ids_list = []
+boxes_list = []
+confidence_list = []
+
 #loop over each of the layer outputs
 for detection_layer in detection_layers:
     #loop over the detections
@@ -60,7 +73,7 @@ for detection_layer in detection_layers:
         prediction_confidence = all_scores[predicted_class_id]
         
         #take only predictions with good confidence level
-        if (prediction_confidence > 0.50):
+        if (prediction_confidence > 0.70):
             #get the predicted label
             predicted_class_label = class_labels[predicted_class_id]
             #obtain the bounding box co-ordinates for actual image from resized image size
@@ -70,8 +83,10 @@ for detection_layer in detection_layers:
             start_x_pt = int(box_center_x_pt - (box_width / 2))
             start_y_pt = int(box_center_y_pt - (box_height / 2))
             
-            end_x_pt = start_x_pt + box_width
-            end_y_pt = start_y_pt + box_height
+            
+            class_ids_list.append(predicted_class_id)
+            confidence_list.append(float(prediction_confidence))
+            boxes_list.append([start_x_pt, start_y_pt, int(box_width), int(box_height)])
                       
             #get a random mask color from the numpy array of colors
             box_color = class_colors[predicted_class_id % 64]
@@ -83,11 +98,40 @@ for detection_layer in detection_layers:
             predicted_class_label = "{} : {:.2f}%".format(predicted_class_label, prediction_confidence * 100)
             print("predicted object {}".format(predicted_class_label))
             
-            #print rectangle and text in the image
-            cv.rectangle(img, (start_x_pt, start_y_pt), (end_x_pt, end_y_pt), box_color,1)
-            cv.putText(img, predicted_class_label, (start_x_pt, start_y_pt - 5), cv.FONT_HERSHEY_SIMPLEX, 0.5, box_color)
+#applying the NMW will return only the selected max value ids while suppressing the non maximym (weak) overlapping bounding boxes            
+max_value_ids = cv.dnn.NMSBoxes(boxes_list, confidence_list, SUP_CONF, MS_THRESHOLD )
             
-            cv.imshow("Detection Output", img)
+for max_val_id in max_value_ids:
+    max_class_id = max_val_id[0]
+    box = boxes_list[max_class_id]
+    start_x_pt = box[0]
+    start_y_pt = box[1]
+    box_width = box[2]
+    box_height = box[3]
+    
+    end_x_pt = start_x_pt + box_width
+    end_y_pt = start_y_pt + box_height
+    
+    #get the predicted class id and label
+    predicted_class_id = class_ids_list[max_class_id]
+    predicted_class_label = class_labels[predicted_class_id]
+    prediction_confidence = confidence_list[max_class_id]
+
+    #print rectangle and text in the image
+    cv.rectangle(img, (start_x_pt, start_y_pt), (end_x_pt, end_y_pt), box_color,1)
+    cv.putText(img, predicted_class_label, (start_x_pt, start_y_pt - 5), cv.FONT_HERSHEY_SIMPLEX, 0.5, box_color)
+    
+    cv.imshow("Detection Output", img)
+                    
+while True:
+    ret, current_frame = wb_video_stream.read()    
+    
+    if cv.waitKey(1) & 0xFF == ord('q'):
+        break
+
+#release the stream from the camera and clsoe all open cv windows
+wb_video_stream.release()
+cv.destroyAllWindows
     
 
 

@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Dec 11 18:23:48 2020
+
+@author: nashe
+"""
+
+
+import numpy as np
+import cv2 as cv
+
+
+#webcam stream 
+wb_video_stream = cv.VideoCapture(0)
+
+ #release the stream from the camera and clsoe all open cv windows
+wb_video_stream.release()
+cv.destroyAllWindows 
+
+# =============================================================================
+# while True:
+#     ret, frame = wb_video_stream.read()
+#     
+#     frame.shape[0]
+#     
+#     cv.imshow("Default ",frame)
+#     
+#     
+#     if cv.waitKey(1) & 0xFF == ord('q') :
+#         break
+#     
+#  #release the stream from the camera and clsoe all open cv windows
+# wb_video_stream.release()
+# cv.destroyAllWindows 
+# =============================================================================
